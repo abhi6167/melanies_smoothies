@@ -1,1 +1,36 @@
+# Import python packages
+import streamlit as st
+from snowflake.snowpark.functions import col
 
+# Write directly to the app
+st.title(f"Customize Your Smoothie")
+st.write(
+  """ Choose the fruits you want in your custom Smoothie! 
+  """
+)
+
+name_on_order = st.text_input('Name of the Smoothie: ')
+st.write(f"Name of your smoothie will be: {name_on_order}")
+cnx = st.connection("snowflake")
+session = cnx.session()
+my_dataframe = session.table("smoothies.public.fruit_options").select(col('FRUIT_NAME'))
+ingredients_list = st.multiselect(
+    'choose upto 5 ingredients',
+    my_dataframe,
+    max_selections=5
+)   
+
+submitted = st.button("Submit Order")
+if ingredients_list:
+    ingredients_string = ''
+    
+    for each_fruit in ingredients_list:
+        ingredients_string += each_fruit + ' '
+    my_insert_stmt = """ insert into smoothies.public.orders(ingredients, NAME_ON_ORDER)
+            values ('""" + ingredients_string + """', '""" + name_on_order + """')"""
+
+    st.write(my_insert_stmt)
+    
+    if ingredients_string and submitted:
+        session.sql(my_insert_stmt).collect()
+        st.success('Your Smoothie is ordered!', icon="✅")
